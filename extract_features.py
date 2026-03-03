@@ -69,9 +69,9 @@ class SELDFeatureExtractor():
         """
 
         if split == 'dev':
-            audio_files = glob.glob(os.path.join(self.root_dir, 'stereo_dev', 'dev-*', '*.wav'))
+            audio_files = glob.glob(os.path.join(self.root_dir, 'audio_dev', 'dev-*', '*.wav'))
         elif split == 'eval':
-            audio_files = glob.glob(os.path.join(self.root_dir, 'stereo_eval', 'eval', '*.wav'))
+            audio_files = glob.glob(os.path.join(self.root_dir, 'audio_eval', 'eval', '*.wav'))
         else:
             raise ValueError("Split must be either 'dev' or 'eval'.")
 
@@ -79,7 +79,7 @@ class SELDFeatureExtractor():
 
         for audio_file in tqdm(audio_files, desc=f"Processing audio files ({split})", unit="file"):
             filename = os.path.splitext(os.path.basename(audio_file))[0] + '.pt'
-            feature_path = os.path.join(self.feat_dir, f'stereo_{split}', filename)
+            feature_path = os.path.join(self.feat_dir, f'audio_{split}', filename)
             # Check if the feature file already exists
             if os.path.exists(feature_path):
                 continue

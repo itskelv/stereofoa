@@ -69,6 +69,15 @@ def load_audio(audio_file, sampling_rate):
         tuple: (audio_data, sample_rate)
     """
     audio_data, sr = librosa.load(path=audio_file, sr=sampling_rate, mono=False)
+    if audio_data.shape[0] == 4:
+        W, X, Y, Z = audio_data
+
+        # convert to stereo
+        print("convert to stereo")
+        left  = W + (X + Y) / np.sqrt(2)
+        right = W + (X - Y) / np.sqrt(2)
+
+        audio_data = np.vstack([left, right])
     return audio_data, sr
 
 
