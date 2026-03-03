@@ -139,7 +139,7 @@ class SELDFeatureExtractor():
         os.makedirs(self.feat_dir, exist_ok=True)   # already created by extract_features method
 
         if split == 'dev':
-            label_files = glob.glob(os.path.join(self.root_dir, 'metadata_dev', 'dev-*', '*.csv'))
+            label_files = glob.glob(os.path.join(self.root_dir, 'metadata', 'dev-*', '*.csv'))
         elif split == 'eval':  # only for organizers
             label_files = glob.glob(os.path.join(self.root_dir, 'metadata_eval', 'eval', '*.csv'))
         else:

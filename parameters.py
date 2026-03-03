@@ -11,7 +11,7 @@ Date: January 2025
 params = {
 
     # choose task
-    'modality': 'audio_visual',  # 'audio' or 'audio_visual'
+    'modality': 'audio',  # 'audio' or 'audio_visual'
     'net_type': 'SELDnet',
 
     # data params
