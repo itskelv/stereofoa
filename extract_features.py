@@ -75,7 +75,7 @@ class SELDFeatureExtractor():
         else:
             raise ValueError("Split must be either 'dev' or 'eval'.")
 
-        os.makedirs(os.path.join(self.feat_dir, f'stereo_{split}'), exist_ok=True)
+        os.makedirs(os.path.join(self.feat_dir, f'audio_{split}'), exist_ok=True)
 
         for audio_file in tqdm(audio_files, desc=f"Processing audio files ({split})", unit="file"):
             filename = os.path.splitext(os.path.basename(audio_file))[0] + '.pt'
