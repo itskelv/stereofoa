@@ -118,7 +118,7 @@ def main():
     else:
         seld_loss = SELDLossSingleACCDOA(params=params).to(device)
 
-    seld_metrics = ComputeSELDResults(params=params, ref_files_folder=os.path.join(params['root_dir'], 'metadata_dev'))
+    seld_metrics = ComputeSELDResults(params=params, ref_files_folder=os.path.join(params['root_dir'], 'metadata'))
 
     start_epoch = 0
     best_f_score = float('-inf')
