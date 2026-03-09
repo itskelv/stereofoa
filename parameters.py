@@ -63,7 +63,7 @@ params = {
 
     # training params
     'nb_epochs': 200,
-    'batch_size': 128,
+    'batch_size': 64,
     'nb_workers': 0,
     'shuffle': True,
 
