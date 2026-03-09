@@ -73,7 +73,7 @@ def load_audio(audio_file, sampling_rate):
         W, X, Y, Z = audio_data
 
         # convert to stereo
-        print("convert to stereo")
+        # print("convert to stereo")
         left  = W + (X + Y) / np.sqrt(2)
         right = W + (X - Y) / np.sqrt(2)
 
