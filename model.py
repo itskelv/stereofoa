@@ -47,7 +47,7 @@ class SELDModel(nn.Module):
         # Conv layers
         self.conv_blocks = nn.ModuleList()
         for conv_cnt in range(params['nb_conv_blocks']):
-            self.conv_blocks.append(ConvBlock(in_channels=params['nb_conv_filters'] if conv_cnt else 2,  # stereo
+            self.conv_blocks.append(ConvBlock(in_channels=params['nb_conv_filters'] if conv_cnt else 4,  # foa
                                               out_channels=params['nb_conv_filters'],
                                               pool_size=(params['t_pool_size'][conv_cnt], params['f_pool_size'][conv_cnt]),
                                               dropout=params['dropout']))

@@ -97,6 +97,10 @@ def main():
     # Set up directories for storing model checkpoints, predictions(output_dir), and create a summary writer
     checkpoints_folder, output_dir, summary_writer = utils.setup(params)
 
+    print("Cuda: ", torch.cuda.is_available())
+    print(torch.cuda.memory_allocated())
+    print(torch.cuda.memory_reserved())
+
     # Feature extraction code.
     feature_extractor = SELDFeatureExtractor(params)
     feature_extractor.extract_features(split='dev')
@@ -118,7 +122,7 @@ def main():
     else:
         seld_loss = SELDLossSingleACCDOA(params=params).to(device)
 
-    seld_metrics = ComputeSELDResults(params=params, ref_files_folder=os.path.join(params['root_dir'], 'metadata'))
+    seld_metrics = ComputeSELDResults(params=params, ref_files_folder=os.path.join(params['root_dir'], 'metadata_dev'))
 
     start_epoch = 0
     best_f_score = float('-inf')

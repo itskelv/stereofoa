@@ -15,11 +15,8 @@ params = {
     'net_type': 'SELDnet',
 
     # data params
-    # 'root_dir': '../DCASE2025_SELD_dataset',  # parent directory containing the audio, video and labels directory
-    # 'feat_dir': '../DCASE2025_SELD_dataset/features',  # store extracted features here
-
-    'root_dir': '../unidataset',  # parent directory containing the audio, video and labels directory
-    'feat_dir': '../unidataset/unifeatures',  # store extracted features here
+    'root_dir': '../stereodataset',  # parent directory containing the audio, video and labels directory
+    'feat_dir': '../stereodataset/features',  # store extracted features here
 
     'log_dir': 'logs',  # save all logs here like loss and metrics
     'checkpoints_dir': 'checkpoints',  # save trained model checkpoints and config

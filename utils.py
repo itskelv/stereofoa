@@ -69,15 +69,15 @@ def load_audio(audio_file, sampling_rate):
         tuple: (audio_data, sample_rate)
     """
     audio_data, sr = librosa.load(path=audio_file, sr=sampling_rate, mono=False)
-    if audio_data.shape[0] == 4:
-        W, X, Y, Z = audio_data
+    if audio_data.shape[0] == 2:
+        L, R = audio_data
 
-        # convert to stereo
-        # print("convert to stereo")
-        left  = W + (X + Y) / np.sqrt(2)
-        right = W + (X - Y) / np.sqrt(2)
+        W = (L + R) / np.sqrt(2) # mimic omnidirectional
+        X = (L - R) / np.sqrt(2) # mimic x axis
+        Y = np.zeros_like(W) # fake channel
+        Z = np.zeros_like(W) # fake channel
 
-        audio_data = np.vstack([left, right])
+        audio_data = np.stack([W, X, Y, Z], axis=1)
     return audio_data, sr
 
 
@@ -108,6 +108,20 @@ def extract_log_mel_spectrogram(audio, sr, n_fft, hop_length, win_length, nb_mel
     log_mel_spectrogram = librosa.power_to_db(mel_spec)
     log_mel_spectrogram = log_mel_spectrogram.transpose((2, 0, 1))
     return log_mel_spectrogram
+
+
+def extract_intensity_vectors(linear_spectra, _eps, _mel_wts, _nb_mel_bins):
+        W = linear_spectra[:, :, 0]
+        I = np.real(np.conj(W)[:, :, np.newaxis] * linear_spectra[:, :, 1:])
+        E = _eps + (np.abs(W)**2 + ((np.abs(linear_spectra[:, :, 1:])**2).sum(-1)) / 3.0)
+
+        I_norm = I / E[:, :, np.newaxis]
+        I_norm_mel = np.transpose(np.dot(np.transpose(I_norm, (0, 2, 1)), _mel_wts), (0, 2, 1))
+        foa_iv = I_norm_mel.transpose((0, 2, 1)).reshape((linear_spectra.shape[0], _nb_mel_bins * 3))
+        if np.isnan(foa_iv).any():
+            print('Feature extraction is generating nan outputs')
+            exit()
+        return foa_iv
 
 
 def load_video(video_file, fps):
