@@ -93,8 +93,8 @@ class DataGenerator(Dataset):
 
         # Loop through each fold and collect files
         for fold in self.folds:
-            audio_files += glob.glob(os.path.join(self.feat_dir, f'audio_dev/{fold}*.pt'))
-            label_files += glob.glob(os.path.join(self.feat_dir, 'metadata{}/{}*.pt'.format('_adpit' if self.params['multiACCDOA'] else '', fold)))
+            audio_files += glob.glob(os.path.join(self.feat_dir, f'stereo_dev/{fold}*.pt'))
+            label_files += glob.glob(os.path.join(self.feat_dir, 'metadata_dev{}/{}*.pt'.format('_adpit' if self.params['multiACCDOA'] else '', fold)))
 
             # Only collect video files if modality is 'audio_video'
             if self.modality == 'audio_visual':

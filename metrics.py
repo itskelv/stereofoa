@@ -202,7 +202,7 @@ class ComputeSELDResults(object):
         :param ref_files_folder: Folder containing the split folders with the reference csv files.
         """
         self._desc_dir = ref_files_folder if ref_files_folder is not None else os.path.join(params['root_dir'],
-                                                                                            'metadata')
+                                                                                            'metadata_dev')
         self._doa_thresh = params['lad_doa_thresh']
         self._dist_thresh = params['lad_dist_thresh']
         self._reldist_thresh = params['lad_reldist_thresh']
