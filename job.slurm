@@ -6,8 +6,8 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:4
-#SBATCH --output=unified.out
-#SBATCH --error=unified.err
+#SBATCH --output=base+iv.out
+#SBATCH --error=base+iv.err
 
 module load cuda/12.1
 conda activate uni

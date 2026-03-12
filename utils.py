@@ -113,6 +113,9 @@ def extract_intensity_vector(stft):
     return intensity_vectors
 
 
+def get_ild_ipd(stft):
+    print("test")
+
 def extract_log_mel_spectrogram(audio, sr, n_fft, hop_length, win_length, nb_mels):
     """
     Computes the log Mel spectrogram from an audio signal.
@@ -140,6 +143,12 @@ def extract_log_mel_spectrogram(audio, sr, n_fft, hop_length, win_length, nb_mel
     iv = np.mean(iv, axis=2)  # collapse freq → (3, time)
 
     iv = iv[:, :, np.newaxis]  # (3, time, 1)
+
+    iv = iv.transpose(1, 0, 2) # (time, 3, 1)
+
+    iv = np.repeat(iv, nb_mels, axis=2)
+
+    log_mel_spectrogram = np.concatenate((log_mel_spectrogram, iv), axis=1)
 
     return log_mel_spectrogram
     
@@ -196,7 +205,8 @@ def extract_resnet_features(video_frames, resnet_preprocessor, resnet_backbone, 
 def load_labels(label_file, convert_to_cartesian=True):
     label_data = {}
     with open(label_file, 'r') as file:
-        lines = file.readlines()[1:]  # Skip the header
+        if "deg" in label_file.lower():
+            lines = file.readlines()[1:]  # Skip the header
         for line in lines:
             values = line.strip().split(',')
             frame_idx = int(values[0])
@@ -215,19 +225,29 @@ def process_labels(_desc_file, _nb_label_frames, _nb_unique_classes):
     se_label = torch.zeros((_nb_label_frames, _nb_unique_classes))
     x_label = torch.zeros((_nb_label_frames, _nb_unique_classes))
     y_label = torch.zeros((_nb_label_frames, _nb_unique_classes))
+    z_label = torch.zeros((_nb_label_frames, _nb_unique_classes))
     dist_label = torch.zeros((_nb_label_frames, _nb_unique_classes))
-    onscreen_label = torch.zeros((_nb_label_frames, _nb_unique_classes))
 
-    for frame_ind, active_event_list in _desc_file.items():
-        if frame_ind < _nb_label_frames:
-            for active_event in active_event_list:
-                se_label[frame_ind, active_event[0]] = 1
-                x_label[frame_ind, active_event[0]] = active_event[2]
-                y_label[frame_ind, active_event[0]] = active_event[3]
-                dist_label[frame_ind, active_event[0]] = active_event[4] / 100.
-                onscreen_label[frame_ind, active_event[0]] = active_event[5]
+    if "deg" in _desc_file.lower():
+        for frame_ind, active_event_list in _desc_file.items():
+            if frame_ind < _nb_label_frames:
+                for active_event in active_event_list:
+                    se_label[frame_ind, active_event[0]] = 1
+                    x_label[frame_ind, active_event[0]] = active_event[2]
+                    y_label[frame_ind, active_event[0]] = active_event[3]
+                    z_label[frame_ind, active_event[0]] = 0
+                    dist_label[frame_ind, active_event[0]] = active_event[4] / 100.
+    else:
+        for frame_ind, active_event_list in _desc_file.items():
+            if frame_ind < _nb_label_frames:
+                for active_event in active_event_list:
+                    se_label[frame_ind, active_event[0]] = 1
+                    x_label[frame_ind, active_event[0]] = active_event[2]
+                    y_label[frame_ind, active_event[0]] = active_event[3]
+                    z_label[frame_ind, active_event[0]] = active_event[4]
+                    dist_label[frame_ind, active_event[0]] = active_event[5] / 100.
 
-    label_mat = torch.cat((se_label, x_label, y_label, dist_label, onscreen_label), dim=1)
+    label_mat = torch.cat((se_label, x_label, y_label, z_label, dist_label), dim=1)
     return label_mat
 
 
@@ -236,8 +256,8 @@ def process_labels_adpit(_desc_file, _nb_label_frames, _nb_unique_classes):
     se_label = torch.zeros((_nb_label_frames, 6, _nb_unique_classes))  # 50, 6, 13
     x_label = torch.zeros((_nb_label_frames, 6, _nb_unique_classes))
     y_label = torch.zeros((_nb_label_frames, 6, _nb_unique_classes))
+    z_label = torch.zeros((_nb_label_frames, 6, _nb_unique_classes))
     dist_label = torch.zeros((_nb_label_frames, 6, _nb_unique_classes))
-    onscreen_label = torch.zeros((_nb_label_frames, 6, _nb_unique_classes))
 
     for frame_ind, active_event_list in _desc_file.items():
         if frame_ind < _nb_label_frames:
@@ -248,101 +268,195 @@ def process_labels_adpit(_desc_file, _nb_label_frames, _nb_unique_classes):
                 if i == len(active_event_list) - 1:  # if the last
                     if len(active_event_list_per_class) == 1:  # if no ov from the same class
                         # a0----
-                        active_event_a0 = active_event_list_per_class[0]
-                        se_label[frame_ind, 0, active_event_a0[0]] = 1
-                        x_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[2]
-                        y_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[3]
-                        dist_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[4] / 100.
-                        onscreen_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_a0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 0, active_event_a0[0]] = 1
+                            x_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[2]
+                            y_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[3]
+                            z_label[frame_ind, 0, active_event_a0[0]] = 0
+                            dist_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[4] / 100.
+                        else:
+                            active_event_a0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 0, active_event_a0[0]] = 1
+                            x_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[2]
+                            y_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[3]
+                            z_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[4]
+                            dist_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[5] / 100.
                     elif len(active_event_list_per_class) == 2:  # if ov with 2 sources from the same class
                         # --b0--
-                        active_event_b0 = active_event_list_per_class[0]
-                        se_label[frame_ind, 1, active_event_b0[0]] = 1
-                        x_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[2]
-                        y_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[3]
-                        dist_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[4] / 100.
-                        onscreen_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_b0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 1, active_event_b0[0]] = 1
+                            x_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[2]
+                            y_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[3]
+                            z_label[frame_ind, 1, active_event_b0[0]] = 0
+                            dist_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[4] / 100.
+                        else:
+                            active_event_b0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 1, active_event_b0[0]] = 1
+                            x_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[2]
+                            y_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[3]
+                            z_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[4]
+                            dist_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[5] / 100.
                         # --b1--
-                        active_event_b1 = active_event_list_per_class[1]
-                        se_label[frame_ind, 2, active_event_b1[0]] = 1
-                        x_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[2]
-                        y_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[3]
-                        dist_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[4] / 100.
-                        onscreen_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[5]
-
+                        if "deg" in _desc_file.lower():
+                            active_event_b1 = active_event_list_per_class[1]
+                            se_label[frame_ind, 2, active_event_b1[0]] = 1
+                            x_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[2]
+                            y_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[3]
+                            z_label[frame_ind, 2, active_event_b1[0]] = 0
+                            dist_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[4] / 100.
+                        else:
+                            active_event_b1 = active_event_list_per_class[1]
+                            se_label[frame_ind, 2, active_event_b1[0]] = 1
+                            x_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[2]
+                            y_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[3]
+                            z_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[4]
+                            dist_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[5] / 100.
                     else:  # if ov with more than 2 sources from the same class
                         # ----c0
-                        active_event_c0 = active_event_list_per_class[0]
-                        se_label[frame_ind, 3, active_event_c0[0]] = 1
-                        x_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[2]
-                        y_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[3]
-                        dist_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[4] / 100.
-                        onscreen_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[5]
-
+                        if "deg" in _desc_file.lower():
+                            active_event_c0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 3, active_event_c0[0]] = 1
+                            x_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[2]
+                            y_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[3]
+                            z_label[frame_ind, 3, active_event_c0[0]] = 0
+                            dist_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[4] / 100.
+                        else:
+                            active_event_c0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 3, active_event_c0[0]] = 1
+                            x_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[2]
+                            y_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[3]
+                            z_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[4]
+                            dist_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[5] / 100.
                         # ----c1
-                        active_event_c1 = active_event_list_per_class[1]
-                        se_label[frame_ind, 4, active_event_c1[0]] = 1
-                        x_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[2]
-                        y_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[3]
-                        dist_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[4] / 100.
-                        onscreen_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_c1 = active_event_list_per_class[1]
+                            se_label[frame_ind, 4, active_event_c1[0]] = 1
+                            x_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[2]
+                            y_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[3]
+                            z_label[frame_ind, 4, active_event_c1[0]] = 0
+                            dist_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[4] / 100.
+                        else:
+                            active_event_c1 = active_event_list_per_class[1]
+                            se_label[frame_ind, 4, active_event_c1[0]] = 1
+                            x_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[2]
+                            y_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[3]
+                            z_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[4]
+                            dist_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[5] / 100.
                         # ----c2
-                        active_event_c2 = active_event_list_per_class[2]
-                        se_label[frame_ind, 5, active_event_c2[0]] = 1
-                        x_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[2]
-                        y_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[3]
-                        dist_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[4] / 100.
-                        onscreen_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_c2 = active_event_list_per_class[2]
+                            se_label[frame_ind, 5, active_event_c2[0]] = 1
+                            x_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[2]
+                            y_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[3]
+                            z_label[frame_ind, 5, active_event_c2[0]] = 0
+                            dist_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[4] / 100.
+                        else:
+                            active_event_c2 = active_event_list_per_class[2]
+                            se_label[frame_ind, 5, active_event_c2[0]] = 1
+                            x_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[2]
+                            y_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[3]
+                            z_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[4]
+                            dist_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[5] / 100.
 
                 elif active_event[0] != active_event_list[i + 1][0]:  # if the next is not the same class
                     if len(active_event_list_per_class) == 1:  # if no ov from the same class
                         # a0----
-                        active_event_a0 = active_event_list_per_class[0]
-                        se_label[frame_ind, 0, active_event_a0[0]] = 1
-                        x_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[2]
-                        y_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[3]
-                        dist_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[4] / 100.
-                        onscreen_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_a0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 0, active_event_a0[0]] = 1
+                            x_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[2]
+                            y_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[3]
+                            z_label[frame_ind, 0, active_event_a0[0]] = 0
+                            dist_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[4] / 100.
+                        else:
+                            active_event_a0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 0, active_event_a0[0]] = 1
+                            x_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[2]
+                            y_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[3]
+                            z_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[4]
+                            dist_label[frame_ind, 0, active_event_a0[0]] = active_event_a0[5] / 100.
                     elif len(active_event_list_per_class) == 2:  # if ov with 2 sources from the same class
                         # --b0--
-                        active_event_b0 = active_event_list_per_class[0]
-                        se_label[frame_ind, 1, active_event_b0[0]] = 1
-                        x_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[2]
-                        y_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[3]
-                        dist_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[4] / 100.
-                        onscreen_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_b0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 1, active_event_b0[0]] = 1
+                            x_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[2]
+                            y_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[3]
+                            z_label[frame_ind, 1, active_event_b0[0]] = 0
+                            dist_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[4] / 100.
+                        else:
+                            active_event_b0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 1, active_event_b0[0]] = 1
+                            x_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[2]
+                            y_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[3]
+                            z_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[4]
+                            dist_label[frame_ind, 1, active_event_b0[0]] = active_event_b0[5] / 100.
                         # --b1--
-                        active_event_b1 = active_event_list_per_class[1]
-                        se_label[frame_ind, 2, active_event_b1[0]] = 1
-                        x_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[2]
-                        y_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[3]
-                        dist_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[4] / 100.
-                        onscreen_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_b1 = active_event_list_per_class[1]
+                            se_label[frame_ind, 2, active_event_b1[0]] = 1
+                            x_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[2]
+                            y_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[3]
+                            z_label[frame_ind, 2, active_event_b1[0]] = 0
+                            dist_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[4] / 100.
+                        else:
+                            active_event_b1 = active_event_list_per_class[1]
+                            se_label[frame_ind, 2, active_event_b1[0]] = 1
+                            x_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[2]
+                            y_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[3]
+                            z_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[4]
+                            dist_label[frame_ind, 2, active_event_b1[0]] = active_event_b1[5] / 100.
                     else:  # if ov with more than 2 sources from the same class
                         # ----c0
-                        active_event_c0 = active_event_list_per_class[0]
-                        se_label[frame_ind, 3, active_event_c0[0]] = 1
-                        x_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[2]
-                        y_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[3]
-                        dist_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[4] / 100.
-                        onscreen_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_c0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 3, active_event_c0[0]] = 1
+                            x_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[2]
+                            y_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[3]
+                            z_label[frame_ind, 3, active_event_c0[0]] = 0
+                            dist_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[4] / 100.
+                        else:
+                            active_event_c0 = active_event_list_per_class[0]
+                            se_label[frame_ind, 3, active_event_c0[0]] = 1
+                            x_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[2]
+                            y_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[3]
+                            z_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[4]
+                            dist_label[frame_ind, 3, active_event_c0[0]] = active_event_c0[5] / 100.
                         # ----c1
-                        active_event_c1 = active_event_list_per_class[1]
-                        se_label[frame_ind, 4, active_event_c1[0]] = 1
-                        x_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[2]
-                        y_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[3]
-                        dist_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[4] / 100.
-                        onscreen_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_c1 = active_event_list_per_class[1]
+                            se_label[frame_ind, 4, active_event_c1[0]] = 1
+                            x_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[2]
+                            y_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[3]
+                            z_label[frame_ind, 4, active_event_c1[0]] = 0
+                            dist_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[4] / 100.
+                        else:
+                            active_event_c1 = active_event_list_per_class[1]
+                            se_label[frame_ind, 4, active_event_c1[0]] = 1
+                            x_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[2]
+                            y_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[3]
+                            z_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[4]
+                            dist_label[frame_ind, 4, active_event_c1[0]] = active_event_c1[5] / 100.
                         # ----c2
-                        active_event_c2 = active_event_list_per_class[2]
-                        se_label[frame_ind, 5, active_event_c2[0]] = 1
-                        x_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[2]
-                        y_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[3]
-                        dist_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[4] / 100.
-                        onscreen_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[5]
+                        if "deg" in _desc_file.lower():
+                            active_event_c2 = active_event_list_per_class[2]
+                            se_label[frame_ind, 5, active_event_c2[0]] = 1
+                            x_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[2]
+                            y_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[3]
+                            z_label[frame_ind, 5, active_event_c2[0]] = 0
+                            dist_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[4] / 100.
+                        else:
+                            active_event_c2 = active_event_list_per_class[2]
+                            se_label[frame_ind, 5, active_event_c2[0]] = 1
+                            x_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[2]
+                            y_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[3]
+                            z_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[4]
+                            dist_label[frame_ind, 5, active_event_c2[0]] = active_event_c2[5] / 100.
                     active_event_list_per_class = []
 
-    label_mat = torch.stack((se_label, x_label, y_label, dist_label, onscreen_label), dim=2)  # [nb_frames, 6, 5(act+XY+dist+onscreen), max_classes]
+    label_mat = torch.stack((se_label, x_label, y_label, z_label, dist_label), dim=2)  # [nb_frames, 6, 5(act+XY+dist+onscreen), max_classes]
     return label_mat
 
 
@@ -360,7 +474,7 @@ def organize_labels(input_dict, max_frames, max_tracks=10):
     for frame_idx in range(0, max_frames):
         if frame_idx not in input_dict:
             continue
-        for [class_idx, source_idx, az, dist, onscreen] in input_dict[frame_idx]:
+        for [class_idx, source_idx, az, ele, dist] in input_dict[frame_idx]:
             if class_idx not in output_dict[frame_idx]:
                 output_dict[frame_idx][class_idx] = {}
             if source_idx not in output_dict[frame_idx][class_idx] and source_idx < max_tracks:
@@ -372,7 +486,7 @@ def organize_labels(input_dict, max_frames, max_tracks=10):
                     warnings.warn("The number of sources of is higher than the number of tracks. "
                                   "Some events will be missed.")
                     track_idx = 0  # Overwrite one event
-            output_dict[frame_idx][class_idx][track_idx] = [az, dist, onscreen]
+            output_dict[frame_idx][class_idx][track_idx] = [az, ele, dist]
 
     return output_dict
 
@@ -383,10 +497,13 @@ def convert_polar_to_cartesian(input_dict):
         if frame_idx not in output_dict:
             output_dict[frame_idx] = []
         for tmp_val in input_dict[frame_idx]:
-            azi_rad = tmp_val[2]*np.pi/180
-            x = np.cos(azi_rad)
-            y = np.sin(azi_rad)
-            output_dict[frame_idx].append(tmp_val[0:2] + [x, y] + tmp_val[3:])
+            azi = tmp_val[2] * np.pi / 180
+            ele = tmp_val[3] * np.pi / 180
+
+            x = np.cos(ele) * np.cos(azi)
+            y = np.cos(ele) * np.sin(azi)
+            z = np.sin(ele)
+            output_dict[frame_idx].append([tmp_val[0], tmp_val[1], x, y, z, tmp_val[4]])
     return output_dict
 
 
@@ -398,23 +515,31 @@ def convert_cartesian_to_polar(input_dict):
         for tmp_val in input_dict[frame_idx]:
             x = tmp_val[2]
             y = tmp_val[3]
-            azi_rad = np.arctan2(y, x)
-            azimuth = azi_rad * 180 / np.pi
-            output_dict[frame_idx].append(tmp_val[0:2] + [azimuth] + tmp_val[4:])
+            z = tmp_val[4]
+
+            azi = np.arctan2(y, x)
+            elev = np.arctan2(z, np.sqrt(x**2 + y**2))
+
+            azimuth = azi * 180 / np.pi
+            elevation = elev * 180 / np.pi
+
+            output_dict[frame_idx].append([tmp_val[0], tmp_val[1], azimuth, elevation, tmp_val[5]])
     return output_dict
 
 
 def get_accdoa_labels(logits, nb_classes, modality):
-    x, y = logits[:, :, :nb_classes], logits[:, :, nb_classes:2 * nb_classes]
-    sed = torch.sqrt(x ** 2 + y ** 2) > 0.5
-    distance = logits[:, :, 2 * nb_classes: 3 * nb_classes]
+    x = logits[:, :, :nb_classes]
+    y = logits[:, :, nb_classes:2 * nb_classes]
+    z = logits[:, :, 2 * nb_classes:3 * nb_classes]
+
+    sed = torch.sqrt(x ** 2 + y ** 2 + z ** 2) > 0.5
+
+    distance = logits[:, :, 3 * nb_classes:4 * nb_classes]
     distance[distance < 0.] = 0.
-    if modality == 'audio_visual':
-        on_screen = logits[:, :, 3 * nb_classes: 4 * nb_classes]
-    else:
-        on_screen = torch.zeros_like(distance)  # don't care for audio modality
+
     dummy_src_id = torch.zeros_like(distance)
-    return sed, dummy_src_id, x, y, distance, on_screen
+
+    return sed, dummy_src_id, x, y, z, distance
 
 
 def get_multiaccdoa_labels(logits, nb_classes, modality):
@@ -425,7 +550,7 @@ def get_multiaccdoa_labels(logits, nb_classes, modality):
         dist0[dist0 < 0.] = 0
         doa0 = logits[:, :, :2*nb_classes]
         dummy_src_id0 = torch.zeros_like(dist0)
-        on_screen0 = torch.zeros_like(dist0)
+        # on_screen0 = torch.zeros_like(dist0)
 
         x1, y1 = logits[:, :, 3*nb_classes:4 * nb_classes], logits[:, :, 4 * nb_classes: 5 * nb_classes]
         sed1 = torch.sqrt(x1 ** 2 + y1 ** 2) > 0.5
@@ -433,7 +558,7 @@ def get_multiaccdoa_labels(logits, nb_classes, modality):
         dist1[dist1 < 0.] = 0
         doa1 = logits[:, :, 3*nb_classes:5 * nb_classes]
         dummy_src_id1 = torch.zeros_like(dist1)
-        on_screen1 = torch.zeros_like(dist1)
+        # on_screen1 = torch.zeros_like(dist1)
 
         x2, y2 = logits[:, :, 6*nb_classes:7 * nb_classes], logits[:, :, 7 * nb_classes:8 * nb_classes]
         sed2 = torch.sqrt(x2 ** 2 + y2 ** 2) > 0.5
@@ -441,9 +566,10 @@ def get_multiaccdoa_labels(logits, nb_classes, modality):
         dist2[dist2 < 0.] = 0
         doa2 = logits[:, :, 6*nb_classes:8 * nb_classes]
         dummy_src_id2 = torch.zeros_like(dist2)
-        on_screen2 = torch.zeros_like(dist2)
+        # on_screen2 = torch.zeros_like(dist2)
 
-        return sed0, dummy_src_id0, doa0,  dist0, on_screen0, sed1, dummy_src_id1, doa1,  dist1, on_screen1, sed2, dummy_src_id2, doa2,  dist2, on_screen2
+        # return sed0, dummy_src_id0, doa0,  dist0, on_screen0, sed1, dummy_src_id1, doa1,  dist1, on_screen1, sed2, dummy_src_id2, doa2,  dist2, on_screen2
+        return sed0, dummy_src_id0, doa0,  dist0, sed1, dummy_src_id1, doa1,  dist1, sed2, dummy_src_id2, doa2,  dist2
 
     else:
         x0, y0 = logits[:, :, :1 * nb_classes], logits[:, :, 1 * nb_classes:2 * nb_classes]
@@ -473,21 +599,21 @@ def get_multiaccdoa_labels(logits, nb_classes, modality):
         return sed0, dummy_src_id0, doa0, dist0, on_screen0, sed1, dummy_src_id1, doa1, dist1, on_screen1, sed2, dummy_src_id2, doa2, dist2, on_screen2
 
 
-def get_output_dict_format_single_accdoa(sed, src_id, x, y, dist, onscreen, convert_to_polar=True):
+def get_output_dict_format_single_accdoa(sed, src_id, x, y, z, dist, convert_to_polar=True):
     output_dict = {}
     for frame_cnt in range(sed.shape[0]):
         for class_cnt in range(sed.shape[1]):
             if sed[frame_cnt][class_cnt] > 0.5:
                 if frame_cnt not in output_dict:
                     output_dict[frame_cnt] = []
-                output_dict[frame_cnt].append([class_cnt, src_id[frame_cnt][class_cnt], x[frame_cnt][class_cnt], y[frame_cnt][class_cnt], dist[frame_cnt][class_cnt], onscreen[frame_cnt][class_cnt]])
+                output_dict[frame_cnt].append([class_cnt, src_id[frame_cnt][class_cnt], x[frame_cnt][class_cnt], y[frame_cnt][class_cnt], z[frame_cnt][class_cnt], dist[frame_cnt][class_cnt]])
 
     if convert_to_polar:
         output_dict = convert_cartesian_to_polar(output_dict)
     return output_dict
 
 
-def distance_between_cartesian_coordinates(x1, y1, x2, y2):
+def distance_between_cartesian_coordinates(x1, y1, x2, y2, z1, z2):
     """
     Angular distance between two cartesian coordinates
     MORE: https://en.wikipedia.org/wiki/Great-circle_distance
@@ -496,12 +622,13 @@ def distance_between_cartesian_coordinates(x1, y1, x2, y2):
     :return: angular distance in degrees
     """
     # Normalize the Cartesian vectors
-    N1 = np.sqrt(x1**2 + y1**2 + 1e-10)
-    N2 = np.sqrt(x2**2 + y2**2 + 1e-10)
-    x1, y1, x2, y2 = x1/N1, y1/N1, x2/N2, y2/N2
+    N1 = np.sqrt(x1**2 + y1**2 + z1**2 + 1e-10)
+    N2 = np.sqrt(x2**2 + y2**2 + z2**2 + 1e-10)
 
-    # Compute the distance
-    dist = x1*x2 + y1*y2
+    x1, y1, z1 = x1/N1, y1/N1, z1/N1
+    x2, y2, z2 = x2/N2, y2/N2, z2/N2
+
+    dist = x1*x2 + y1*y2 + z1*z2
     dist = np.clip(dist, -1, 1)
     dist = np.arccos(dist) * 180 / np.pi
     return dist
@@ -524,7 +651,7 @@ def fold_az_angle(az):
 
 def determine_similar_location(sed_pred0, sed_pred1, doa_pred0, doa_pred1, class_cnt, thresh_unify, nb_classes):
     if (sed_pred0 == 1) and (sed_pred1 == 1):
-        if distance_between_cartesian_coordinates(doa_pred0[class_cnt], doa_pred0[class_cnt+1*nb_classes], doa_pred1[class_cnt], doa_pred1[class_cnt+1*nb_classes]) < thresh_unify:
+        if distance_between_cartesian_coordinates(doa_pred0[class_cnt], doa_pred0[class_cnt+1*nb_classes], doa_pred0[class_cnt + 2*nb_classes], doa_pred1[class_cnt], doa_pred1[class_cnt+1*nb_classes], doa_pred1[class_cnt + 2*nb_classes]) < thresh_unify:
             return 1
         else:
             return 0
@@ -653,13 +780,14 @@ def write_to_dcase_output_format(output_dict, output_dir, filename, split, conve
         for frame_ind, values in output_dict.items():
             for value in values:
                 azimuth_rounded = round(float(value[2]))
-                dist_rounded = round(float(value[3]) * 100) if convert_dist_to_cm else round(float(value[3]))
-                f.write(f"{int(frame_ind)},{int(value[0])},{int(value[1])},{azimuth_rounded},{dist_rounded},{int(value[4])}\n")
+                elevation_rounded = round(float(value[3]))
+                dist_rounded = round(float(value[4]) * 100) if convert_dist_to_cm else round(float(value[4]))
+                f.write(f"{int(frame_ind)},{int(value[0])},{int(value[1])},{azimuth_rounded},{elevation_rounded},{dist_rounded}\n")
 
 
 def write_logits_to_dcase_format(logits, params, output_dir, filelist, split='dev-test'):
     if not params['multiACCDOA']:
-        sed, dummy_src_id, x, y, dist, onscreen = get_accdoa_labels(logits, params['nb_classes'], params['modality'])
+        sed, dummy_src_id, x, y, z, dist = get_accdoa_labels(logits, params['nb_classes'], params['modality'])
         for i in range(sed.size(0)):
             sed_i, dummy_src_id_i, x_i, y_i, dist_i, onscreen_i = sed[i].cpu().numpy(), dummy_src_id[i].cpu().numpy(), x[i].cpu().numpy(), y[i].cpu().numpy(), dist[i].cpu().numpy(), onscreen[i].cpu().numpy()
             output_dict = get_output_dict_format_single_accdoa(sed_i, dummy_src_id_i, x_i, y_i, dist_i, onscreen_i, convert_to_polar=True)
@@ -748,7 +876,7 @@ def least_distance_between_gt_pred(gt_list, pred_list):
     return cost, row_ind, col_ind
 
 
-def print_results(f, ang_error, dist_error, rel_dist_error, onscreen_acc, class_wise_scr, params):
+def print_results(f, ang_error, dist_error, rel_dist_error, class_wise_scr, params):
     use_jackknife = params['use_jackknife']
     print('\n\n')
     print('F-score: {:0.1f}% {}'.format(
@@ -769,13 +897,6 @@ def print_results(f, ang_error, dist_error, rel_dist_error, onscreen_acc, class_
         rel_dist_error[0] if use_jackknife else rel_dist_error,
         '[{:0.2f}, {:0.2f}]'.format(rel_dist_error[1][0], rel_dist_error[1][1]) if use_jackknife else ''
     ))
-
-    if params['modality'] == 'audio_visual':
-        print('Onscreen accuracy: {:0.1f}% {}'.format(
-            100 * onscreen_acc[0] if use_jackknife else 100 * onscreen_acc,
-            '[{:0.2f}, {:0.2f}]'.format(100 * onscreen_acc[1][0],
-                                        100 * onscreen_acc[1][1]) if use_jackknife else ''
-        ))
 
     if params['average'] == 'macro':
         print('Class-wise results on unseen data:')
