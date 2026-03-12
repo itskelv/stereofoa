@@ -148,6 +148,9 @@ def extract_log_mel_spectrogram(audio, sr, n_fft, hop_length, win_length, nb_mel
 
     iv = np.repeat(iv, nb_mels, axis=2)
 
+    print(f"log_mel_spectrogram shape: {log_mel_spectrogram.shape}")
+    print(f"iv shape: {iv.shape}")
+
     log_mel_spectrogram = np.concatenate((log_mel_spectrogram, iv), axis=1)
 
     return log_mel_spectrogram
