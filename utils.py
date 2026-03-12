@@ -207,6 +207,8 @@ def load_labels(label_file, convert_to_cartesian=True):
     with open(label_file, 'r') as file:
         if "deg" in label_file.lower():
             lines = file.readlines()[1:]  # Skip the header
+        else:
+            lines = file.readlines()[0:]
         for line in lines:
             values = line.strip().split(',')
             frame_idx = int(values[0])
