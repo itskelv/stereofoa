@@ -138,7 +138,7 @@ def extract_log_mel_spectrogram(audio, sr, n_fft, hop_length, win_length, nb_mel
     log_mel_spectrogram = librosa.power_to_db(mel_spec)
     log_mel_spectrogram = log_mel_spectrogram.transpose((2, 0, 1))
 
-    iv = extract_intensity_vector(linear_stft_mag)  # (3, time, freq)
+    iv = extract_intensity_vector(linear_stft)  # (3, time, freq)
 
     iv = np.mean(iv, axis=2)  # collapse freq → (3, time)
 
