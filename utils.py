@@ -94,23 +94,16 @@ def extract_stft(audio, n_fft, hop_length, win_length):
 
 def extract_intensity_vector(stft):
     W = stft[0]
-    X = stft[1]
-    Y = stft[2]
-    Z = stft[3]
+    IV_x = np.real(np.conj(W) * stft[1])
+    IV_y = np.real(np.conj(W) * stft[2])
+    IV_z = np.real(np.conj(W) * stft[3])
 
-    Ix = np.real(W * np.conj(X))
-    Iy = np.real(W * np.conj(Y))
-    Iz = np.real(W * np.conj(Z))
-
-    energy = np.abs(W) ** 2 + 1e-8
-
-    Ix = Ix / energy
-    Iy = Iy / energy
-    Iz = Iz / energy
-
-    intensity_vectors = np.stack([Ix, Iy, Iz], axis=0)
-
-    return intensity_vectors
+    iv = np.stack([IV_x, IV_y, IV_z], axis=0)
+    
+    energy = np.abs(W)**2 + 1e-8
+    iv = iv / energy
+    
+    return iv
 
 
 def get_ild_ipd(stft):
@@ -137,21 +130,8 @@ def extract_log_mel_spectrogram(audio, sr, n_fft, hop_length, win_length, nb_mel
     mel_spec = librosa.feature.melspectrogram(S=linear_stft_mag, sr=sr, n_mels=nb_mels)
     log_mel_spectrogram = librosa.power_to_db(mel_spec)
     log_mel_spectrogram = log_mel_spectrogram.transpose((2, 0, 1))
-
-    iv = extract_intensity_vector(linear_stft)  # (3, time, freq)
-
-    iv = np.mean(iv, axis=2)  # collapse freq → (3, time)
-
-    iv = iv[:, :, np.newaxis]  # (3, time, 1)
-
-    iv = iv.transpose(1, 0, 2) # (time, 3, 1)
-
-    iv = np.repeat(iv, nb_mels, axis=2)
-
-    print(f"log_mel_spectrogram shape: {log_mel_spectrogram.shape}")
-    print(f"iv shape: {iv.shape}")
-
-    log_mel_spectrogram = np.concatenate((log_mel_spectrogram, iv), axis=1)
+    iv = extract_intensity_vector(linear_stft)
+    log_mel_spectrogram = np.concatenate([log_mel_spectrogram, iv], axis=0)
 
     return log_mel_spectrogram
     
