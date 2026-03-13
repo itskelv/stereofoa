@@ -92,17 +92,26 @@ def extract_stft(audio, n_fft, hop_length, win_length):
     return stft
 
 
-def extract_intensity_vector(stft):
-    W = stft[0]
-    IV_x = np.real(np.conj(W) * stft[1])
-    IV_y = np.real(np.conj(W) * stft[2])
-    IV_z = np.real(np.conj(W) * stft[3])
+def extract_intensity_vector(stft, sr, n_fft, nb_mels):
+    W = stft[:, :, 0]
+    X = stft[:, :, 1]
+    Y = stft[:, :, 2]
+    Z = stft[:, :, 3]
 
-    iv = np.stack([IV_x, IV_y, IV_z], axis=0)
-    
-    energy = np.abs(W)**2 + 1e-8
-    iv = iv / energy
-    
+    # Active intensity vectors
+    Ix = np.real(W * np.conj(X))
+    Iy = np.real(W * np.conj(Y))
+    Iz = np.real(W * np.conj(Z))
+
+    # Mel filterbank
+    mel_basis = librosa.filters.mel(sr=sr, n_fft=n_fft, n_mels=nb_mels)
+
+    Ix_mel = np.dot(Ix, mel_basis.T)
+    Iy_mel = np.dot(Iy, mel_basis.T)
+    Iz_mel = np.dot(Iz, mel_basis.T)
+
+    iv = np.stack([Ix_mel, Iy_mel, Iz_mel], axis=-1)
+
     return iv
 
 
@@ -125,15 +134,34 @@ def extract_log_mel_spectrogram(audio, sr, n_fft, hop_length, win_length, nb_mel
         ndarray: Array of shape (2, time_frames, nb_mels) - log Mel spectrogram for each channel.
     """
 
-    linear_stft = extract_stft(audio, n_fft, hop_length, win_length)
-    linear_stft_mag = np.abs(linear_stft) ** 2
-    mel_spec = librosa.feature.melspectrogram(S=linear_stft_mag, sr=sr, n_mels=nb_mels)
-    log_mel_spectrogram = librosa.power_to_db(mel_spec)
-    log_mel_spectrogram = log_mel_spectrogram.transpose((2, 0, 1))
-    iv = extract_intensity_vector(linear_stft)
-    log_mel_spectrogram = np.concatenate([log_mel_spectrogram, iv], axis=0)
+    stfts = []
+    for ch in range(audio.shape[0]):
+        stft_ch = librosa.stft(audio[ch], n_fft=n_fft, hop_length=hop_length, win_length=win_length).T
+        stfts.append(stft_ch)
 
-    return log_mel_spectrogram
+    stft = np.stack(stfts, axis=-1)  # (time, freq, 4)
+
+    # Log mel for each channel
+    logmel_list = []
+
+    for ch in range(stft.shape[-1]):
+        power = np.abs(stft[:, :, ch]) ** 2
+
+        mel = librosa.feature.melspectrogram(
+            S=power.T, sr=sr, n_mels=nb_mels
+        )
+
+        logmel = librosa.power_to_db(mel).T
+        logmel_list.append(logmel)
+
+    logmel = np.stack(logmel_list, axis=-1)
+    
+    
+    iv = extract_intensity_vector(stft, sr, n_fft, nb_mels)  # (time, mel, 3)
+    # Concatenate
+    features = np.concatenate([logmel, iv], axis=-1)  # (time, mel, 7)
+
+    return features
     
 
 def load_video(video_file, fps):
